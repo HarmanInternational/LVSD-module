@@ -467,4 +467,4 @@ static void __exit vsp_char_exit(void)
 
 module_init(vsp_char_init);
 module_exit(vsp_char_exit);
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
