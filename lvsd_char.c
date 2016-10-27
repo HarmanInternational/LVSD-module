@@ -162,7 +162,7 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 	case LVSD_DESTROY_VSP:
 			LVSD_DEBUG("LVSD_DESTROY_VSP");
 			/* Get from User, the handle of the VSP that has to be destroyed*/
-			retval = __get_user(handle, (unsigned int __user *) arg);
+			retval = __get_user(handle, (unsigned long __user *) arg);
 			if (retval)	{
 				LVSD_ERR("Get from User Failed");
 				return retval;
