@@ -1244,9 +1244,9 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	tty_dev = tty_register_device(drv->tty_driver, uport->line, NULL);
 
 	if (likely(!IS_ERR(tty_dev)))
-		LVSD_DEBUG("tty device %s%d registered", drv->dev_name, uport->line);
+		LVSD_DEBUG("tty device %s registered", drv->dev_name);
 	else {
-	LVSD_ERR("tty device %s%d registration failure", drv->dev_name, uport->line);
+	LVSD_ERR("tty device %s registration failure", drv->dev_name);
 		ret = -EINVAL;
 		goto out;
 	}
