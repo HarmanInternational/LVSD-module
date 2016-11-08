@@ -1448,14 +1448,14 @@ tLvsd_Uart_Port_t *allocate_port(unsigned char index, unsigned int rsize, unsign
 	LVSD_DEBUG("Wbuffer_Size: %d", vsport->wbuffer_size);
 
 	/* allocate the read and write buffers (rbuffer, wbuffer) which are to be memory mapped*/
-	vsport->wbuffer =  (char *) __get_free_pages(GFP_KERNEL, 0); /*order is 2^0 = 1 - this is used for write coming from VSAL Layer*/
+	vsport->wbuffer =  (char *) __get_free_pages(GFP_KERNEL, 2); /*order is 2^0 = 1 - this is used for write coming from VSAL Layer*/
 	if (vsport->wbuffer == NULL) {
 		LVSD_ERR("Allocation of Wbuffer Failure");
 		return NULL;
 	}
 	LVSD_DEBUG("Page allocated for WBuffer: %p", vsport->wbuffer);
 
-	vsport->rbuffer.buf = (char *) __get_free_pages(GFP_KERNEL, 0); /*this is used for write coming from Application*/
+	vsport->rbuffer.buf = (char *) __get_free_pages(GFP_KERNEL, 2); /*this is used for write coming from Application*/
 	if (vsport->rbuffer.buf == NULL) {
 		free_pages((unsigned long)vsport->wbuffer, 0);
 		LVSD_ERR("Allocation of Rbuffer Failure");
