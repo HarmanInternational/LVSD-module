@@ -1562,6 +1562,8 @@ tLvsd_Uart_Devices_t *search_for_device(char *name)
 	tLvsd_Uart_Devices_t	*devices_temp = NULL;
 
 	ENTER();
+	
+	LVSD_DEBUG("Device to be searched is %s",name);
 
 	devices_temp = vsp_char_device.devices_head;
 
@@ -1571,11 +1573,13 @@ tLvsd_Uart_Devices_t *search_for_device(char *name)
 	else {
 		/* parse the devices list*/
 		while (devices_temp) {
+			LVSD_DEBUG("Comparing device name in list");
 			if (!strcmp(devices_temp->dev_name, name)) {
 				LVSD_DEBUG("Device Match found - returning");
 				LEAVE();
 				return devices_temp;
 			} else {
+				LVSD_DEBUG("Increase temp to next");
 				devices_temp = devices_temp->next;
 			}
 		}
@@ -1629,6 +1633,7 @@ int remove_device_from_list(tLvsd_Uart_Devices_t *device)
 		LVSD_DEBUG("Device is present at Char Devices head");
 		/*check if next is NULL, and then set this as last device and vsp_char head to NULL
 		*vsp_char_device.devices_head = device->next;//This sets the head to next location - which could cause us a problem on multidev - we need to check, if any more device is available in the list - for single device, device->next should be NULL*/
+		vsp_char_device.devices_head = NULL;
 	} else
 		device->prev->next = device->next;
 
@@ -1637,8 +1642,8 @@ int remove_device_from_list(tLvsd_Uart_Devices_t *device)
 /*	else
 *		vsp_char_device.devices_head = NULL;*/
 
-	return 0;
 	LEAVE();
+	return 0;
 }
 
 /* creates a VSP*/
@@ -1816,19 +1821,19 @@ int destroy_vsp(tLvsd_Uart_Port_t *vsp)
 	ENTER();
 
 	if (!vsp || !vsp->uart_dev_struct) {
-		LVSD_ERR("Invalid VSP handle passed");
+		LVSD_DEBUG("Invalid VSP handle passed");
 		return -1;
 	}
 
 	uport = &vsp->port;
 	if (!uport || !uport->state) {
-		LVSD_ERR("Invalid uart port / uart state in VSP");
+		LVSD_DEBUG("Invalid uart port / uart state in VSP");
 		return -1;
 	}
 
 	ttyport = &uport->state->port;
 	if (!ttyport) {
-		LVSD_ERR("ttyport in the state of uart port in VSP is NULL");
+		LVSD_DEBUG("ttyport in the state of uart port in VSP is NULL");
 		return -1;
 	}
 	LVSD_DEBUG("checked ttyport");
