@@ -25,6 +25,7 @@
 * MACROS
 *----------------------------------------------------------------------------*/
 #define	LVSD_VSP_DEVICE_NAME_MAX_LEN	255
+#define LVSD_VSAL_MAX_WRITE_SIZE	12288
 
 /*
 * Ioctl definitions
@@ -37,6 +38,7 @@
 #define LVSD_GET_FREESPACE		0x1005
 #define LVSD_WAIT_FOR_EVENTS		0x1006
 #define	LVSD_UPDATE_READ_CNT		0x1007
+#define	LVSD_DO_PENDING_WRITE		0x1008
 
 /*------------------------------------------------------------------------------
  * TYPEDEFS & STRUCTURES
@@ -49,7 +51,9 @@ typedef enum tLvsd_Event {
 	LVSD_EVENT_VSP_DATA,
 	LVSD_EVENT_VSP_CONTROL,
 	LVSD_EVENT_VSP_OPEN,
+	LVSD_EVENT_VSP_WRITE,
 	LVSD_EVENT_VSP_CLOSE,
+	LVSD_EVENT_VSP_SHUTDOWN,
 	LVSD_EVENT_VSP_BUFFER_STATE_CHANGE
 } tLvsd_Event_t;
 
@@ -125,6 +129,11 @@ typedef struct tLvsd_Update_Read_Count {
 	void			*vsp_handle;
 	unsigned int	read_cnt;
 } tLvsd_Update_Read_Count_t;
+
+typedef struct tLvsd_Update_Pending_Write {
+	void *vsp_handle;
+	unsigned int	write_flag;
+} tLvsd_Update_Pending_Write_t;
 
 /**
  * @brief                : The Read or Write Buffers of a VSP which are to be mmapped

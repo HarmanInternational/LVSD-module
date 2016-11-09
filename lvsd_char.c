@@ -127,6 +127,7 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 	tLvsd_Freespace_t		buffer_freespace;
 	tLvsd_Event_Entry_t		event_entry;
 	tLvsd_Update_Read_Count_t	buf_read_cnt;
+	tLvsd_Update_Pending_Write_t	pending_write;
 
 	ENTER();
 
@@ -159,6 +160,9 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 				LVSD_ERR("Copy to User Failed");
 				return -EFAULT;
 			}
+			/*Setup filp to vsp handle for write ctrlx usage*/
+			filp->private_data = device.vsp_handle;
+
 			break;
 
 		/* Destroy a VSP*/
@@ -171,12 +175,21 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 				return retval;
 			}
 
-			/* Destroy the VSP*/
-			retval = destroy_vsp((tLvsd_Uart_Port_t *)handle);
-			if (retval) {
-				LVSD_DEBUG("VSP Removal Failure");
-				return retval;
-			}
+			/* Do a TTY Shutdown */
+			retval = shutdown_vsp((tLvsd_Uart_Port_t *)handle);
+			if (retval == 0) {
+				LVSD_DEBUG("TTY Shutdown/Destroy failure as No TTY");
+				/* Destroy the VSP*/
+				retval = destroy_vsp((tLvsd_Uart_Port_t *)handle);
+			} else if (retval) {
+				LVSD_DEBUG("Destroy of VSP from shutdown was successful");
+				retval = 0;
+			} else
+				LVSD_DEBUG("NTD");
+
+			return retval;
+
+
 			break;
 
 		/* Set the Modem Control Value of a VSP*/
@@ -267,6 +280,24 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 			update_circ_read_cnt((tLvsd_Uart_Port_t *)buf_read_cnt.vsp_handle, buf_read_cnt.read_cnt);
 
 			break;
+
+	case LVSD_DO_PENDING_WRITE:
+			LVSD_DEBUG("LVSD_DO_PENDING_WRITE");
+			/* Copy from user, the handle and pending write flag*/
+			if (copy_from_user(&pending_write, (tLvsd_Update_Pending_Write_t *) arg, sizeof(tLvsd_Update_Pending_Write_t))) {
+				LVSD_ERR("Copy from user Failed");
+				return -EFAULT;
+			}
+			retval = trigger_pending_write((tLvsd_Uart_Port_t *)pending_write.vsp_handle, pending_write.write_flag);
+			if (retval != 0)
+				LVSD_DEBUG("Failed trigger pending write");
+			else if (retval == 0)
+				LVSD_DEBUG("Trigger pending write succeess");
+			else
+				LVSD_DEBUG("Something is wrong");
+			
+			break;
+
 	default:
 			LVSD_ERR("Invalid ioctl argument passed: cmd: %u", cmd);
 			return -ENOTTY;
@@ -345,36 +376,58 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
  * The WRITE implementation on the Character Device
  */
 static ssize_t vsp_char_write (struct file *filp, const char __user *buf, size_t count, loff_t *f_pos) {
-	unsigned int 		ret;
-	tLvsd_Uart_Port_t 	*vsp;
-	tLvsd_Mmap_Buf_Info_t 	mmap_buf_struct;
-
-
-	/* An User Mmaps the Wbuffer of a VSP, fills the data in to the Mmapped Wbuffer, then calls the write on the Character Device
-	 * to inform the LVSD that data is available on the VSP.
-	 * The LVSD then copies the data in the Wbuffer to the TTY Buffers of the VSP ??
-	 * The data which has been copied to the TTY Buffers of the VSP is pushed to serial core and later read by a Serial Application */
+	unsigned int	ret = 0;
+	unsigned int	fill_level;
+	unsigned char	*user_data;	/*This will get de-allocated once this function is returned*/
+	tLvsd_Uart_Port_t	*vsp;
 
 	ENTER();
 
-	/* Copy from User, the mmap_buf_struct, which has the Handle of the VSP, whose Wbuffer has been updated with the Data*/
-	if (copy_from_user(&mmap_buf_struct, (tLvsd_Mmap_Buf_Info_t *)buf, sizeof(tLvsd_Mmap_Buf_Info_t))) {
-		LVSD_ERR("Copy from User Failed");
-		return -EFAULT;
+	if (buf != NULL) {
+		/*Allocate memory for copying user space buffer*/
+		user_data = kzalloc(LVSD_VSAL_MAX_WRITE_SIZE, GFP_KERNEL);
+		if (!user_data) {
+			LVSD_ERR("Allocation of kernel memory for copying user space buffer failed");
+			goto done;
+		} else {
+			/*Copy from User space the user data buffer*/
+			if (copy_from_user(user_data, buf, (sizeof(char) * count))) {
+				LVSD_ERR("Copy from User Failed");
+				goto dealloc;
+			}
+		}
+	} else {
+		LVSD_DEBUG("User Space buffer cannot be NULL");
+		return -1;
 	}
 
-	vsp = (tLvsd_Uart_Port_t *)(mmap_buf_struct.vsp_handle);
-	/* Copy the Data from the Wbuffer of the VSP to the RBUF of the VSP, which can be read by a Serial Application on that VSP*/
+	LVSD_DEBUG("filp->private_data %p", filp->private_data);
+
+	vsp = (tLvsd_Uart_Port_t *)(filp->private_data);
+	LVSD_DEBUG("filp->private_data %p, and vsp is %p and these must be equal for a vsp", filp->private_data, vsp);
+
+	/*Copy the Data from the Wbuffer of the VSP to the RBUF of the VSP, which can be read by a Serial Application on that VSP*/
 	if (!vsp) {
 		LVSD_ERR("passed VSP handle cannot be NULL");
 		return -EINVAL;
 	} else {
-      /* Increment the write buffer fill status and pass a copy of it to receive_chars function. variable name is current fillstatus*/
-	ret = receive_chars(vsp, count, atomic_add_return(count, &(vsp->wbuf_fill_level)));
-	LVSD_DEBUG("%d bytes written to TTY Buffers successfully", ret);
-		LEAVE();
-		return ret;
+		memcpy(vsp->wbuffer, user_data, count);
+		/*Increment the write buffer fill status and pass a copy of it to receive_chars function. variable name is current fillstatus*/
+		fill_level = atomic_add_return(count, &(vsp->wbuf_fill_level));
+		ret = receive_chars(vsp, count, fill_level);
+		if (ret == 0) {
+			LVSD_DEBUG("Pushing data to TTY buffers failed - as there was no TTY\n\t\t Invoking Alternate method for buffering data on uart_open");
+			ret = store_wbuff_data(vsp, count, fill_level);
+		} else {
+			LVSD_DEBUG("%d bytes written to TTY Buffers successfully", ret);
+			goto done;
+			LEAVE();
+		}
 	}
+dealloc:
+	kfree(user_data);
+done:
+	return ret;
 }
 
 /* Various File Operations on the Character Device Interface*/

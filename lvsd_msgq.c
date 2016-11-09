@@ -46,14 +46,14 @@ static unsigned int IsQueueFull(LvsdMsgQueue tQ)
 {
 	ENTER();
 	LEAVE();
-	return (tQ->uInQueue == tQ->uMaxElements);
+	return tQ->uInQueue == tQ->uMaxElements;
 }
 
 static unsigned int IsQueueEmpty(LvsdMsgQueue tQ)
 {
 	ENTER();
 	LEAVE();
-	return (tQ->uInQueue == 0);
+	return tQ->uInQueue == 0;
 }
 
 static unsigned int GetNumOfQueueEntries(LvsdMsgQueue tQ)

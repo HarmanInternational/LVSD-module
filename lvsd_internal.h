@@ -87,6 +87,7 @@ struct tLvsd_Uart_Port {
 	spinlock_t		interrupt_lock;
 	/*atomic var to show write buffer fill status. Set 0*/
 	atomic_t wbuf_fill_level;
+	struct mutex		wbuffer_mutex;/*To protect wbuffer concurrent access in user space and kernel space*/
 	struct circ_buf		rbuffer;
 	unsigned int		rbuffer_size;
 	unsigned int		wbuffer_size;
@@ -148,6 +149,15 @@ tLvsd_Uart_Port_t *create_vsp(char *device_name,
 int destroy_vsp(tLvsd_Uart_Port_t  *handle);
 
 /**
+ * @brief   : Shutdown a VSP
+ *
+ * @param   : handle
+ *              Handle to the VSP which has to be destroyed
+ * Returns  : 0 in case of Success
+ */
+int shutdown_vsp(tLvsd_Uart_Port_t  *handle);
+
+/**
  * @brief   : Update the Modem Control Value of a VSP
  *
  * @param   : port, Uart Port of the VSP, whose Modem Control Value has to be updated
@@ -177,8 +187,17 @@ unsigned int uart_get_mctrl(struct uart_port *port);
  * @param   : current_wbuf_fill_level - bytes available in write buff.
  * Returns  : data copied from the Wbuffer of VSP, to TTY buffers of VSP
  */
-unsigned int receive_chars(tLvsd_Uart_Port_t *vsp,
-		size_t count, int current_wbuf_fill_level);
+unsigned int receive_chars(tLvsd_Uart_Port_t *vsp, size_t count,
+	unsigned int current_wbuf_fill_level);
+
+/*Function to buffer data written on ctrlX side*/
+int store_wbuff_data(tLvsd_Uart_Port_t *vsp, size_t count,
+	unsigned int fill_level);
+
+/*Function to trigger pending write if upper layer has not consumed more data*/
+int trigger_pending_write(tLvsd_Uart_Port_t *vsp,
+	unsigned int write_flag);
+
 
 /**
  * @brief   : Get the amount of freespace available, in the RBUF of the VSP
