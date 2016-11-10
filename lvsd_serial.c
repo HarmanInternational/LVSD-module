@@ -1776,8 +1776,6 @@ tLvsd_Uart_Devices_t *search_for_device(char *name)
 	tLvsd_Uart_Devices_t	*devices_temp = NULL;
 
 	ENTER();
-	
-	LVSD_DEBUG("Device to be searched is %s",name);
 
 	devices_temp = vsp_char_device.devices_head;
 
@@ -1787,13 +1785,11 @@ tLvsd_Uart_Devices_t *search_for_device(char *name)
 	else {
 		/* parse the devices list*/
 		while (devices_temp) {
-			LVSD_DEBUG("Comparing device name in list");
 			if (!strcmp(devices_temp->dev_name, name)) {
 				LVSD_DEBUG("Device Match found - returning");
 				LEAVE();
 				return devices_temp;
 			} else {
-				LVSD_DEBUG("Increase temp to next");
 				devices_temp = devices_temp->next;
 			}
 		}
@@ -1813,8 +1809,9 @@ void add_device_to_list(tLvsd_Uart_Devices_t *device)
 	ENTER();
 
 	if (vsp_char_device.devices_head) {
-		device->next = vsp_char_device.devices_head;
-		device->next->prev = device;
+		LVSD_DEBUG("Device head had some value");
+		device->next = vsp_char_device.devices_head; //Current device(btspp) next shld hold value at device head lvsd
+		device->next->prev = device; //lvsd
 	}
 
 	/* always add to the head*/
@@ -1829,7 +1826,9 @@ void add_device_to_list(tLvsd_Uart_Devices_t *device)
  */
 int remove_device_from_list(tLvsd_Uart_Devices_t *device)
 {
+	tLvsd_Uart_Devices_t *tmp_device;
 	ENTER();
+
 
 	if (!device) {
 		LVSD_ERR("Device cannot be NULL");
@@ -1838,16 +1837,52 @@ int remove_device_from_list(tLvsd_Uart_Devices_t *device)
 
 	LVSD_DEBUG("Device to be removed is %s", device->dev_name);
 
-	if (!search_for_device(device->dev_name)) {
+	/*if (!search_for_device(device->dev_name)) {
 		LVSD_ERR("Cannot Remove Device which is not present in Linked List");
 		return -1;
-	}
+	}*/
+	
+	tmp_device = search_for_device(device->dev_name);
 
+	if(!tmp_device) {
+		LVSD_DEBUG("Cannot remove Device which is not present in Linked List");
+		return -1;
+	}
+	
+	
+	if (tmp_device == vsp_char_device.devices_head) {
+		LVSD_DEBUG("Device is present at head, so remove it is the latest device");
+		if (tmp_device->next == NULL) {
+			LVSD_DEBUG("Also this device is the last device in list");
+			vsp_char_device.devices_head = NULL;
+		}	
+		if (tmp_device->next != NULL) 
+			vsp_char_device.devices_head = tmp_device->next;
+		
+	} else if (tmp_device->next != NULL) {
+		LVSD_DEBUG("Device to be removed is somewhere after the head");
+		tmp_device->next->prev = tmp_device->prev;
+		tmp_device->prev = vsp_char_device.devices_head;
+	} else if (tmp_device->next == NULL) {
+		LVSD_DEBUG("We are deep inside Linked list, but this is the last device");
+		tmp_device->prev = vsp_char_device.devices_head;
+		tmp_device->prev->next = NULL;
+	} else// if (tmp_device->prev != NULL) {
+		LVSD_DEBUG("unknown Condition");
+//	}
+	
+
+	
+#if 0
+	
 	if (device == vsp_char_device.devices_head) {
-		LVSD_DEBUG("Device is present at Char Devices head");
-		/*check if next is NULL, and then set this as last device and vsp_char head to NULL
-		*vsp_char_device.devices_head = device->next;//This sets the head to next location - which could cause us a problem on multidev - we need to check, if any more device is available in the list - for single device, device->next should be NULL*/
-		vsp_char_device.devices_head = NULL;
+		LVSD_DEBUG("Device is present at Char Devices head, so remove from here");
+		/*check if next is NULL, and then set this as last device and vsp_char head to NULL*/
+		if (device->next != NULL)
+			vsp_char_device.devices_head = device->next;
+//This sets the head to next location - which could cause us a problem on multidev - we need to check, if any more device is available in the list - for single device, device->next should be NULL*/
+			device->next->prev = device->prev;
+		//	vsp_char_device.devices_head = NULL;
 	} else
 		device->prev->next = device->next;
 
@@ -1855,7 +1890,7 @@ int remove_device_from_list(tLvsd_Uart_Devices_t *device)
 		device->next->prev = device->prev;
 /*	else
 *		vsp_char_device.devices_head = NULL;*/
-
+#endif
 	LEAVE();
 	return 0;
 }

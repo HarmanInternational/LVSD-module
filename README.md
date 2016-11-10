@@ -51,3 +51,4 @@ LVSD OSS Final Tested release.
 Known Issues
 	- Sometimes, if a write/read is in progress from application side and the VSP is destroyed/deleted, the TTY layer does not handle this very well and may crash sometime or have a recursive boot fault.
 	- Stable fix for this will be provided in the coming time but not immediately.
+

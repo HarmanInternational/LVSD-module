@@ -53,7 +53,6 @@ static int vsp_char_open (struct inode *inode, struct file *filp) {
 	ENTER();
 
 	/* To verify that port is opened only once (increment the vsp_char_device.open_count atomic variable) //for single device creation only*/
-	LVSD_DEBUG("vsp_char_device.open_count: %d", atomic_read(&vsp_char_device.open_count));
 	atomic_inc(&vsp_char_device.open_count);
 	lvsd_workqueue_struct = create_workqueue("lvsdwq");
 	if (!lvsd_workqueue_struct) {
@@ -75,12 +74,10 @@ static int vsp_char_open (struct inode *inode, struct file *filp) {
 	if (atomic_read(&vsp_char_device.open_count) == 1) {
 		LVSD_DEBUG("Setting head of device LL to NULL, as this is the first device to be created");
 		vsp_char_device.devices_head = NULL;
-	} else {
+	} else
 		LVSD_DEBUG("This is second device creation so, so no need to make head to NULL, as head will contain 1st created device");
-	}
 
-	LVSD_DEBUG("vsp_char_device.open_count: %d", atomic_read(&vsp_char_device.open_count));
-
+	LVSD_INFO("vsp_char_device.open_count: %d", atomic_read(&vsp_char_device.open_count));
 	LEAVE();
 	return 0;          /* success */
 }
@@ -120,9 +117,9 @@ static long vsp_char_ioctl (struct file *filp, unsigned int cmd, unsigned long a
 #else
 static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg) {
 #endif
-	int 				retval;
-	unsigned long 			handle;
-	tLvsd_Vsp_t	 		device;
+	int				retval;
+	unsigned long			handle;
+	tLvsd_Vsp_t			device;
 	tLvsd_Modem_Ctrl_Val_t		set_modem_ctrl, get_modem_ctrl;
 	tLvsd_Freespace_t		buffer_freespace;
 	tLvsd_Event_Entry_t		event_entry;
