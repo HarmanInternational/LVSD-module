@@ -285,13 +285,13 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 				LVSD_ERR("Copy from user Failed");
 				return -EFAULT;
 			}
-			retval = trigger_pending_write((tLvsd_Uart_Port_t *)pending_write.vsp_handle, pending_write.write_flag);
+			/*retval = trigger_pending_write((tLvsd_Uart_Port_t *)pending_write.vsp_handle, pending_write.write_flag);
 			if (retval != 0)
 				LVSD_DEBUG("Failed trigger pending write");
 			else if (retval == 0)
 				LVSD_DEBUG("Trigger pending write succeess");
 			else
-				LVSD_DEBUG("Something is wrong");
+				LVSD_DEBUG("Something is wrong");*/
 			
 			break;
 
