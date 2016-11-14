@@ -350,6 +350,9 @@ unsigned int receive_chars(tLvsd_Uart_Port_t *vsp, size_t count, unsigned int cu
 				char_count++;
 			}
 			spin_unlock_irqrestore(&vsp->port.lock, port_flags);
+			LVSD_DEBUG("Sending TTY Flip buffer push, as we don't want to wait for buffers to get full");
+			tty_flip_buffer_push(tty_port);
+			LVSD_DEBUG("All bytes pushed to TTY core for TB - 1");
 
 		}
 		/* If the amount of data that has to be copied from Wbuffer to TTY buffer, is less than the amount of free space in the TTY buffer*/
@@ -364,7 +367,9 @@ unsigned int receive_chars(tLvsd_Uart_Port_t *vsp, size_t count, unsigned int cu
 			}
 			spin_unlock_irqrestore(&vsp->port.lock, port_flags);
 			LVSD_DEBUG("Triggering Finish ");
-			goto finish;
+			tty_flip_buffer_push(tty_port);
+			LVSD_DEBUG("All bytes pushed to TTY core for TB - 2");
+			/*goto finish;*/
 		}
 	}
 	/* If a TTY buffer is not available at the tail of the TTY buffer linked list. i.e. the first time data is copied from the Wbuffer to the TTY buffer
@@ -389,8 +394,8 @@ unsigned int receive_chars(tLvsd_Uart_Port_t *vsp, size_t count, unsigned int cu
 		}
 
 	}
-finish:
-	tty_flip_buffer_push(tty_port);
+/*finish:
+	tty_flip_buffer_push(tty_port);*/
 
 	LEAVE();
 	/* Return the number of bytes copied from the Wbuffer of the VSP to the TTY buffers*/
