@@ -285,13 +285,13 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 				LVSD_ERR("Copy from user Failed");
 				return -EFAULT;
 			}
-			/*retval = trigger_pending_write((tLvsd_Uart_Port_t *)pending_write.vsp_handle, pending_write.write_flag);
-			if (retval != 0)
-				LVSD_DEBUG("Failed trigger pending write");
+			retval = trigger_pending_write((tLvsd_Uart_Port_t *)pending_write.vsp_handle, pending_write.write_flag);
+			if (retval == 1)
+				LVSD_DEBUG("Event already sent for residual data and we compensated it");
 			else if (retval == 0)
 				LVSD_DEBUG("Trigger pending write succeess");
 			else
-				LVSD_DEBUG("Something is wrong");*/
+				LVSD_DEBUG("Something is wrong");
 			
 			break;
 
@@ -414,7 +414,7 @@ static ssize_t vsp_char_write (struct file *filp, const char __user *buf, size_t
 		ret = receive_chars(vsp, count, fill_level);
 		if (ret == 0) {
 			LVSD_DEBUG("Pushing data to TTY buffers failed - as there was no TTY\n\t\t Invoking Alternate method for buffering data on uart_open");
-			ret = store_wbuff_data(vsp, count, fill_level);
+			//ret = store_wbuff_data(vsp, count, fill_level);
 		} else {
 			LVSD_DEBUG("%d bytes written to TTY Buffers successfully", ret);
 			goto done;

@@ -71,6 +71,11 @@ int trigger_pending_write(tLvsd_Uart_Port_t *up, unsigned int write_flag)
 	unsigned long flags;
 	tLvsd_Event_Entry_t data_event;
 
+	if(!up) {
+		LVSD_DEBUG("Somebody called a Pending write before the handle was even created");
+		return -1;
+	}
+
 	circ = &up->rbuffer;
 	uport = &up->port;
 
@@ -103,11 +108,12 @@ int trigger_pending_write(tLvsd_Uart_Port_t *up, unsigned int write_flag)
 		/*Calculate data remaining in Rbuffer to be re-triggered again*/
 		residual_data = circ->head - circ->tail;
 		if (residual_data) {
-			LVSD_DEBUG("There is some valid residual data in Rbuffer - Sending event to upper layer for the same");
+			LVSD_DEBUG("There is some valid residual data in Rbuffer - Sending event to upper layer for the same - Around %d",residual_data);
 			data_event.vsp_handle = up;
 			data_event.event = LVSD_EVENT_VSP_DATA;
 			data_event.data_offset = data_pointer;
 			data_event.size = residual_data;		
+			uart_circ_clear(&up->rbuffer);
 			event_created = 1;
 		}
 			
@@ -940,7 +946,7 @@ static int uart_write(struct tty_struct *tty, const unsigned char *buf, int coun
 
 	spin_unlock_irqrestore(&port->lock, flags);
 	/* If data has been copied to the Rbuffer, create a Data event*/
-	if (ret) {
+	if (ret != -1) {
 		data_event.vsp_handle = up;
 		data_event.event = LVSD_EVENT_VSP_DATA;
 		data_event.data_offset = data_pointer;
@@ -1043,6 +1049,7 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 
 	up = (tLvsd_Uart_Port_t *)(state->uart_port);
 
+#if 0
 	/*Try to call receive_chars here so that on first open the data gets pushed to TTY buffers*/
 	if ((port->count == 1)) {
 		LVSD_DEBUG("Entered pushbuffer logic as this is first open of our serial mount point");
@@ -1056,6 +1063,7 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 			g_count = 0;
 		}
 	}
+#endif
 
 	/* Create an Open event*/
 	open_event.vsp_handle = up;
@@ -1526,7 +1534,6 @@ int lvsd_uart_remove_one_port(struct uart_driver *drv, struct uart_port *uport)
 	 */
 	if (uport->type != PORT_UNKNOWN)
 		uport->ops->release_port(uport);
-	kfree(uport->tty_groups);
 
 	/*
 	 * Indicate that there isn't a port here anymore.
@@ -1837,11 +1844,6 @@ int remove_device_from_list(tLvsd_Uart_Devices_t *device)
 
 	LVSD_DEBUG("Device to be removed is %s", device->dev_name);
 
-	/*if (!search_for_device(device->dev_name)) {
-		LVSD_ERR("Cannot Remove Device which is not present in Linked List");
-		return -1;
-	}*/
-	
 	tmp_device = search_for_device(device->dev_name);
 
 	if(!tmp_device) {
@@ -1849,48 +1851,19 @@ int remove_device_from_list(tLvsd_Uart_Devices_t *device)
 		return -1;
 	}
 	
-	
 	if (tmp_device == vsp_char_device.devices_head) {
-		LVSD_DEBUG("Device is present at head, so remove it is the latest device");
-		if (tmp_device->next == NULL) {
-			LVSD_DEBUG("Also this device is the last device in list");
-			vsp_char_device.devices_head = NULL;
-		}	
-		if (tmp_device->next != NULL) 
-			vsp_char_device.devices_head = tmp_device->next;
-		
+		vsp_char_device.devices_head = tmp_device->next;
+		LVSD_DEBUG("Device was at head");
 	} else if (tmp_device->next != NULL) {
-		LVSD_DEBUG("Device to be removed is somewhere after the head");
 		tmp_device->next->prev = tmp_device->prev;
-		tmp_device->prev = vsp_char_device.devices_head;
-	} else if (tmp_device->next == NULL) {
-		LVSD_DEBUG("We are deep inside Linked list, but this is the last device");
-		tmp_device->prev = vsp_char_device.devices_head;
-		tmp_device->prev->next = NULL;
-	} else// if (tmp_device->prev != NULL) {
-		LVSD_DEBUG("unknown Condition");
-//	}
-	
+		tmp_device->prev->next = tmp_device->next;
+		LVSD_DEBUG("Device somewhere in the middle, but definately not last");
+	} else {
+		tmp_device->prev->next = tmp_device->next;
+		LVSD_DEBUG("This in the middle - checking is it is last");
+	}
 
 	
-#if 0
-	
-	if (device == vsp_char_device.devices_head) {
-		LVSD_DEBUG("Device is present at Char Devices head, so remove from here");
-		/*check if next is NULL, and then set this as last device and vsp_char head to NULL*/
-		if (device->next != NULL)
-			vsp_char_device.devices_head = device->next;
-//This sets the head to next location - which could cause us a problem on multidev - we need to check, if any more device is available in the list - for single device, device->next should be NULL*/
-			device->next->prev = device->prev;
-		//	vsp_char_device.devices_head = NULL;
-	} else
-		device->prev->next = device->next;
-
-	if (device->next != NULL)
-		device->next->prev = device->prev;
-/*	else
-*		vsp_char_device.devices_head = NULL;*/
-#endif
 	LEAVE();
 	return 0;
 }
