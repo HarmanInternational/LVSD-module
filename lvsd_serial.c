@@ -113,7 +113,7 @@ int trigger_pending_write(tLvsd_Uart_Port_t *up, unsigned int write_flag)
 			data_event.event = LVSD_EVENT_VSP_DATA;
 			data_event.data_offset = data_pointer;
 			data_event.size = residual_data;		
-			uart_circ_clear(&up->rbuffer);
+			/*uart_circ_clear(&up->rbuffer);*//*Do not clear this - Hotfix*/
 			event_created = 1;
 		}
 			
