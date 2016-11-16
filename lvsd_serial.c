@@ -102,7 +102,7 @@ int trigger_pending_write(tLvsd_Uart_Port_t *up, unsigned int write_flag)
 
 	if (circ->head != circ->tail) {
 		/*Some data is remaining in the Rbuffer*/
-		data_pointer = circ->head;
+		data_pointer = circ->tail;
 		
 		LVSD_DEBUG("Circular buffer has something");
 		/*Calculate data remaining in Rbuffer to be re-triggered again*/
@@ -113,7 +113,9 @@ int trigger_pending_write(tLvsd_Uart_Port_t *up, unsigned int write_flag)
 			data_event.event = LVSD_EVENT_VSP_DATA;
 			data_event.data_offset = data_pointer;
 			data_event.size = residual_data;		
-			/*uart_circ_clear(&up->rbuffer);*//*Do not clear this - Hotfix*/
+	//		uart_circ_clear(&up->rbuffer);
+			circ->tail = circ->tail + residual_data;
+			LVSD_DEBUG("TAIL now  %d",circ->tail);
 			event_created = 1;
 		}
 			
@@ -155,13 +157,13 @@ void update_circ_read_cnt(tLvsd_Uart_Port_t *up, unsigned int read_cnt)
 	spin_lock_irqsave(&uport->lock, flags);
 
 	LVSD_DEBUG("Circular tail before update is %d", circ->tail);
-	circ->tail = (circ->tail + read_cnt) & (LVSD_BUFFER_SIZE - 1); /*incrementing tail as, item is removed from Circ-buffer*/
+	circ->tail = (circ->tail + read_cnt);// & (LVSD_BUFFER_SIZE - 1); /*incrementing tail as, item is removed from Circ-buffer*/
 	LVSD_DEBUG("circ->tail: %d and circ->head: %d", circ->tail, circ->head);
 	spin_unlock_irqrestore(&uport->lock, flags);
 	LVSD_DEBUG("No. of Free bytes in Circular Buffer are %d", lvsd_uart_circ_chars_free(circ));
 	if (lvsd_uart_circ_chars_free(circ) > LVSD_FREE_CHARS_IN_RBUFFER) {
 		LVSD_DEBUG("Waking up writers on VSP");
-		uart_write_wakeup(uport); /*using standard uart_write_wakeup, to wake writers on VSP,which internally calls, tty_wakeup(tty) , so we do not need tasklet for that.*/
+		//uart_write_wakeup(uport); /*using standard uart_write_wakeup, to wake writers on VSP,which internally calls, tty_wakeup(tty) , so we do not need tasklet for that.*/
 	}
 	LEAVE();
 }
@@ -912,7 +914,7 @@ static int uart_write(struct tty_struct *tty, const unsigned char *buf, int coun
 
 	spin_lock_irqsave(&port->lock, flags);
 
-	data_pointer = circ->head;
+	data_pointer = circ->tail;
 	LVSD_DEBUG(" circ-head or data_pointer: %d", data_pointer);
 	LVSD_DEBUG("circ->tail: %d", circ->tail);
 
