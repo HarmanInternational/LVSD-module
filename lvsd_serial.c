@@ -102,7 +102,7 @@ int trigger_pending_write(tLvsd_Uart_Port_t *up, unsigned int write_flag)
 
 	if (circ->head != circ->tail) {
 		/*Some data is remaining in the Rbuffer*/
-		data_pointer = circ->tail;
+		data_pointer = circ->head;
 		
 		LVSD_DEBUG("Circular buffer has something");
 		/*Calculate data remaining in Rbuffer to be re-triggered again*/
@@ -113,9 +113,7 @@ int trigger_pending_write(tLvsd_Uart_Port_t *up, unsigned int write_flag)
 			data_event.event = LVSD_EVENT_VSP_DATA;
 			data_event.data_offset = data_pointer;
 			data_event.size = residual_data;		
-	//		uart_circ_clear(&up->rbuffer);
-			circ->tail = circ->tail + residual_data;
-			LVSD_DEBUG("TAIL now  %d",circ->tail);
+			//uart_circ_clear(&up->rbuffer);
 			event_created = 1;
 		}
 			
@@ -157,13 +155,13 @@ void update_circ_read_cnt(tLvsd_Uart_Port_t *up, unsigned int read_cnt)
 	spin_lock_irqsave(&uport->lock, flags);
 
 	LVSD_DEBUG("Circular tail before update is %d", circ->tail);
-	circ->tail = (circ->tail + read_cnt);// & (LVSD_BUFFER_SIZE - 1); /*incrementing tail as, item is removed from Circ-buffer*/
+	circ->tail = (circ->tail + read_cnt) & (LVSD_BUFFER_SIZE - 1); /*incrementing tail as, item is removed from Circ-buffer*/
 	LVSD_DEBUG("circ->tail: %d and circ->head: %d", circ->tail, circ->head);
 	spin_unlock_irqrestore(&uport->lock, flags);
 	LVSD_DEBUG("No. of Free bytes in Circular Buffer are %d", lvsd_uart_circ_chars_free(circ));
 	if (lvsd_uart_circ_chars_free(circ) > LVSD_FREE_CHARS_IN_RBUFFER) {
 		LVSD_DEBUG("Waking up writers on VSP");
-		//uart_write_wakeup(uport); /*using standard uart_write_wakeup, to wake writers on VSP,which internally calls, tty_wakeup(tty) , so we do not need tasklet for that.*/
+		uart_write_wakeup(uport); /*using standard uart_write_wakeup, to wake writers on VSP,which internally calls, tty_wakeup(tty) , so we do not need tasklet for that.*/
 	}
 	LEAVE();
 }
@@ -352,9 +350,6 @@ unsigned int receive_chars(tLvsd_Uart_Port_t *vsp, size_t count, unsigned int cu
 				char_count++;
 			}
 			spin_unlock_irqrestore(&vsp->port.lock, port_flags);
-			LVSD_DEBUG("Sending TTY Flip buffer push, as we don't want to wait for buffers to get full");
-			tty_flip_buffer_push(tty_port);
-			LVSD_DEBUG("All bytes pushed to TTY core for TB - 1");
 
 		}
 		/* If the amount of data that has to be copied from Wbuffer to TTY buffer, is less than the amount of free space in the TTY buffer*/
@@ -369,9 +364,7 @@ unsigned int receive_chars(tLvsd_Uart_Port_t *vsp, size_t count, unsigned int cu
 			}
 			spin_unlock_irqrestore(&vsp->port.lock, port_flags);
 			LVSD_DEBUG("Triggering Finish ");
-			tty_flip_buffer_push(tty_port);
-			LVSD_DEBUG("All bytes pushed to TTY core for TB - 2");
-			/*goto finish;*/
+			goto finish;
 		}
 	}
 	/* If a TTY buffer is not available at the tail of the TTY buffer linked list. i.e. the first time data is copied from the Wbuffer to the TTY buffer
@@ -396,8 +389,8 @@ unsigned int receive_chars(tLvsd_Uart_Port_t *vsp, size_t count, unsigned int cu
 		}
 
 	}
-/*finish:
-	tty_flip_buffer_push(tty_port);*/
+finish:
+	tty_flip_buffer_push(tty_port);
 
 	LEAVE();
 	/* Return the number of bytes copied from the Wbuffer of the VSP to the TTY buffers*/
@@ -833,6 +826,7 @@ static void uart_hangup(struct tty_struct *tty)
 	LEAVE();
 }
 
+#if 0
 /* Work to push the data event in to the Message Queue which will be read by the VSAL*/
 static void do_lvsd_work(struct work_struct *work)
 {
@@ -862,6 +856,7 @@ static void do_lvsd_work(struct work_struct *work)
 
 	LEAVE();
 }
+#endif
 
 /* This function is called when a Serial Application writes on a VSP - this data will be written to RBuff*/
 static int uart_write(struct tty_struct *tty, const unsigned char *buf, int count)
@@ -871,7 +866,7 @@ static int uart_write(struct tty_struct *tty, const unsigned char *buf, int coun
 	struct circ_buf *circ;
 	tLvsd_Uart_Port_t *up;
 	tLvsd_Event_Entry_t data_event;
-	tLvsd_Work_Queue_Struct_Event_t *work_queue_struct_event;
+	//tLvsd_Work_Queue_Struct_Event_t *work_queue_struct_event;
 	unsigned int data_pointer;
 	unsigned long flags;
 	int c = 0, ret = 0, spaceinrbuff;
@@ -914,7 +909,7 @@ static int uart_write(struct tty_struct *tty, const unsigned char *buf, int coun
 
 	spin_lock_irqsave(&port->lock, flags);
 
-	data_pointer = circ->tail;
+	data_pointer = circ->head;
 	LVSD_DEBUG(" circ-head or data_pointer: %d", data_pointer);
 	LVSD_DEBUG("circ->tail: %d", circ->tail);
 
@@ -958,7 +953,7 @@ static int uart_write(struct tty_struct *tty, const unsigned char *buf, int coun
 		data_event.event = LVSD_EVENT_VSP_DATA;
 		data_event.data_offset = data_pointer;
 		data_event.size = ret;
-
+#if 0
 		/* if in case, uart_write() is called from a function which already holds a spinlock, then it executes the code under in_atomic()*/
 		if (in_interrupt()) { /*Check what we can do here may be in_interrupt() ??*/
 			LVSD_DEBUG("Workqueue atomic context");
@@ -977,9 +972,10 @@ static int uart_write(struct tty_struct *tty, const unsigned char *buf, int coun
 
 			queue_work(lvsd_workqueue_struct, &work_queue_struct_event->lvsd_work_struct);
 		} else {
+#endif
 			/* Push the data event in to the Message Queue which will be read by the VSAL*/
 			LvsdMsgQueuePut(vsp_char_device.message_queue, &data_event, sizeof(tLvsd_Event_Entry_t), LVSD_MSG_PRIORITY_NORMAL, LVSD_TIMEOUT_INFINITE);
-		}
+//		}
 	}
 
 	LEAVE();
@@ -1056,7 +1052,6 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 
 	up = (tLvsd_Uart_Port_t *)(state->uart_port);
 
-#if 0
 	/*Try to call receive_chars here so that on first open the data gets pushed to TTY buffers*/
 	if ((port->count == 1)) {
 		LVSD_DEBUG("Entered pushbuffer logic as this is first open of our serial mount point");
@@ -1070,7 +1065,6 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 			g_count = 0;
 		}
 	}
-#endif
 
 	/* Create an Open event*/
 	open_event.vsp_handle = up;
@@ -1435,7 +1429,7 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 {
 	struct uart_state *state;
 	struct tty_port *port;
-	struct device *tty_dev;
+	//struct device *tty_dev;
 	int ret = 0;
 
 	ENTER();
@@ -1465,7 +1459,7 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	mutex_unlock(&port->mutex);/*do we need to release it, so that, while transfer in progress - we can acquire this and operate - with long wait*/
 	spin_lock_init(&uport->lock);
 
-	/* adds the TTY device to the TTY layer*/
+	/* adds the TTY device to the TTY layer
 	tty_dev = tty_register_device(drv->tty_driver, uport->line, NULL);
 
 	if (likely(!IS_ERR(tty_dev)))
@@ -1474,7 +1468,7 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	LVSD_ERR("tty device %s registration failure", drv->dev_name);
 		ret = -EINVAL;
 		goto out;
-	}
+	}*/
 
 	/* ensure UPF_DEAD is not set*/
 	uport->flags &= ~UPF_DEAD;
@@ -1484,6 +1478,80 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	mutex_unlock(&port_mutex);
 
 	LEAVE();
+
+	return ret;
+}
+
+
+int lvsd_tty_register_device(tLvsd_Uart_Port_t *up)
+{	
+	struct uart_driver *drv;
+	struct device *tty_dev;
+	struct uart_port *uport;
+	struct tty_port *port;
+	struct uart_state *state;
+	int ret = 0;
+	
+	tLvsd_Uart_Devices_t *device = up->uart_dev_struct;
+
+	if (!device)
+		return -ENODEV;
+
+	drv = &device->driver;
+	uport = &up->port;
+
+	if (!drv) {
+		LVSD_DEBUG("Empty driver");
+		return -EINVAL;
+	}
+
+	if (!drv->state) {
+		LVSD_DEBUG("Empty driver");
+		return -EINVAL;
+	}
+
+	if (uport->line >= drv->nr) {
+		LVSD_DEBUG("Empty driver");
+		return -EINVAL;
+	}
+
+	state = drv->state + uport->line;
+	port = &state->port;
+
+	mutex_lock(&port->mutex);
+	tty_dev = tty_register_device(drv->tty_driver, uport->line, NULL);
+	if (likely(!IS_ERR(tty_dev)))
+		LVSD_DEBUG("TTY device %s registered", drv->dev_name);
+	else {
+		LVSD_ERR("TTY device %s registration failure", drv->dev_name);
+		ret = -EINVAL;
+	}
+
+	mutex_unlock(&port->mutex);
+
+	return ret;
+
+
+}
+
+int lvsd_tty_unregister_device(struct uart_driver *drv, struct uart_port *uport)
+{
+	struct uart_state *state;
+	struct tty_port *port;
+	int ret = 0;
+
+	if (!drv->state)
+		return -EINVAL;
+
+	if (uport->line >= drv->nr)
+		return -EINVAL;
+
+	state = drv->state + uport->line;
+	port = &state->port;
+	
+	mutex_lock(&port->mutex);
+	tty_unregister_device(drv->tty_driver, uport->line);
+	mutex_unlock(&port->mutex);
 
 	return ret;
 }
@@ -1526,8 +1594,8 @@ int lvsd_uart_remove_one_port(struct uart_driver *drv, struct uart_port *uport)
 
 	/*
 	 * Remove the devices from the tty layer
-	 */
-	tty_unregister_device(drv->tty_driver, uport->line);
+	 
+	tty_unregister_device(drv->tty_driver, uport->line);*/
 
 	tty = tty_port_tty_get(port);
 	if (tty) {
@@ -2124,7 +2192,7 @@ int destroy_vsp(tLvsd_Uart_Port_t *vsp)
 	temp_uart_device = vsp->uart_dev_struct;
 
 	/* clear the index bit*/
-	temp_uart_device->port_index_bitmap &= ~(1 << vsp->dev_index);
+	//temp_uart_device->port_index_bitmap &= ~(1 << vsp->dev_index);
 
 	if (!temp_uart_device->port_index_bitmap) {
 		if (remove_device_from_list(temp_uart_device)) {
@@ -2143,10 +2211,21 @@ int destroy_vsp(tLvsd_Uart_Port_t *vsp)
 		lvsd_uart_unregister_driver(&temp_uart_device->driver);
 
 		mutex_unlock(&vsp_char_device.devices_list_lock);
+		return -1;
+	}
+		
+	if (lvsd_tty_unregister_device(&temp_uart_device->driver, &vsp->port)) {
+		LVSD_ERR("Error in unregister TTY device from FS/TTY layer");
+		mutex_unlock(&vsp_char_device.devices_list_lock);
+		return -1;
+	} else {
+		
+		remove_port_from_list(vsp);
+		lvsd_uart_unregister_driver(&temp_uart_device->driver);
 
 		deallocate_port(vsp);
 		deallocate_device(temp_uart_device);
-	} else {
+	
 		if (lvsd_uart_remove_one_port(&temp_uart_device->driver, &vsp->port)) {
 			LVSD_ERR("Error in Removing Uart Port");
 			mutex_unlock(&vsp_char_device.devices_list_lock);
@@ -2158,6 +2237,7 @@ int destroy_vsp(tLvsd_Uart_Port_t *vsp)
 		mutex_unlock(&vsp_char_device.devices_list_lock);
 		deallocate_port(vsp);
 	}
+	
 
 	LEAVE();
 	return 0;

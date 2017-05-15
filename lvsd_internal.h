@@ -215,5 +215,9 @@ unsigned int uart_get_freespace(struct uart_port *port);
  * @param   : read_cnt - value by which data read count of the Read Circ Buff needs updation
  */
 void update_circ_read_cnt(tLvsd_Uart_Port_t *up, unsigned int read_cnt);
+
+/*Register a TTY device with FS and TTY layer*/
+int lvsd_tty_register_device(tLvsd_Uart_Port_t *up);
+
 #endif
 

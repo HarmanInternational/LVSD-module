@@ -42,7 +42,7 @@
 #define  BYTES_ALIGNED              4
 static struct class *vsp_char_class;
 tLvsd_Char_Dev_t vsp_char_device = {0};/*TODO structure dynamic allocation*/
-struct workqueue_struct *lvsd_workqueue_struct;
+//struct workqueue_struct *lvsd_workqueue_struct;
 
 /*
  * The OPEN implementation on the Character Device
@@ -54,13 +54,13 @@ static int vsp_char_open (struct inode *inode, struct file *filp) {
 
 	/* To verify that port is opened only once (increment the vsp_char_device.open_count atomic variable) //for single device creation only*/
 	atomic_inc(&vsp_char_device.open_count);
-	lvsd_workqueue_struct = create_workqueue("lvsdwq");
+	/*lvsd_workqueue_struct = create_workqueue("lvsdwq");
 	if (!lvsd_workqueue_struct) {
 		retval = -ENOMEM;
 		LVSD_ERR("No memory to create workqueue struct");
 		atomic_dec(&vsp_char_device.open_count);
 		return retval;
-	}
+	}*/
 
 	/* Create the Message Queue which is used to inform different events to the VSAL*/
 	retval = LvsdMsgQueueCreate(&vsp_char_device.message_queue, LVSD_MAX_NUMBER_OF_MSGS, sizeof(tLvsd_Event_Entry_t), "VspMsgQ");
@@ -100,8 +100,8 @@ static int vsp_char_release (struct inode *inode, struct file *filp) {
 		retval = LvsdMsgQueueDelete(vsp_char_device.message_queue);
 		if (EOK != retval)
 			return retval;
-		flush_workqueue(lvsd_workqueue_struct);
-		destroy_workqueue(lvsd_workqueue_struct);
+		/*flush_workqueue(lvsd_workqueue_struct);
+		destroy_workqueue(lvsd_workqueue_struct);*/
 	}
 
 	LVSD_INFO("vsp_char_device.open_count: %d", atomic_read(&vsp_char_device.open_count));
@@ -309,6 +309,7 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
  */
 static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 {
+	int ret = 0;
 	tLvsd_Uart_Port_t	*vsp;
 	tLvsd_Mmap_Buf_Info_t	mmap_buf_struct;
 	unsigned long wbuf_phy_addrs, rbuf_phy_addrs;
@@ -349,7 +350,6 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 
 		LVSD_DEBUG("Mapping Read Buffer Success");
 		LEAVE();
-		return 0;
 	}
 	/* If the Wbuffer needs to be Mmapped*/
 	else if (mmap_buf_struct.read_write == LVSD_ACCESS_WRITE_BUF) {
@@ -359,14 +359,24 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 		}
 
 		LVSD_DEBUG("Mapping Write Buffer Success");
+		ret = 1;
 		LEAVE();
-		return 0;
 	}
 	/* If neither of the buffers needs to be Mmapped, then return error*/
 	else {
 		LVSD_ERR("Memory to be Mapped is neither Read nor Write Buffer");
 		return -EINVAL;
 	}
+
+	/*Create the actual File system entry For our TTY device*/
+	if (ret) {
+		ret = lvsd_tty_register_device(vsp);
+		LVSD_DEBUG("TTY Device Registered from MMAP Write function");
+	}
+
+	LEAVE();
+	return ret;
+
 }
 
 /*
@@ -414,7 +424,7 @@ static ssize_t vsp_char_write (struct file *filp, const char __user *buf, size_t
 		ret = receive_chars(vsp, count, fill_level);
 		if (ret == 0) {
 			LVSD_DEBUG("Pushing data to TTY buffers failed - as there was no TTY\n\t\t Invoking Alternate method for buffering data on uart_open");
-			//ret = store_wbuff_data(vsp, count, fill_level);
+			ret = store_wbuff_data(vsp, count, fill_level);
 		} else {
 			LVSD_DEBUG("%d bytes written to TTY Buffers successfully", ret);
 			goto done;
