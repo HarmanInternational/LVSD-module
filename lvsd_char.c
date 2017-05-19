@@ -172,6 +172,7 @@ static long vsp_char_ioctl (struct inode *inode, struct file *filp, unsigned int
 				return retval;
 			}
 
+			//LVSD_DEBUG("Delete VSP handle is %p", handle);
 			/* Do a TTY Shutdown */
 			retval = shutdown_vsp((tLvsd_Uart_Port_t *)handle);
 			if (retval == 0) {

@@ -2220,12 +2220,6 @@ int destroy_vsp(tLvsd_Uart_Port_t *vsp)
 		return -1;
 	} else {
 		
-		remove_port_from_list(vsp);
-		lvsd_uart_unregister_driver(&temp_uart_device->driver);
-
-		deallocate_port(vsp);
-		deallocate_device(temp_uart_device);
-	
 		if (lvsd_uart_remove_one_port(&temp_uart_device->driver, &vsp->port)) {
 			LVSD_ERR("Error in Removing Uart Port");
 			mutex_unlock(&vsp_char_device.devices_list_lock);
@@ -2233,9 +2227,12 @@ int destroy_vsp(tLvsd_Uart_Port_t *vsp)
 		}
 
 		remove_port_from_list(vsp);
+		lvsd_uart_unregister_driver(&temp_uart_device->driver);
 
 		mutex_unlock(&vsp_char_device.devices_list_lock);
+
 		deallocate_port(vsp);
+		deallocate_device(temp_uart_device);
 	}
 	
 
