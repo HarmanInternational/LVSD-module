@@ -505,7 +505,7 @@ static int __init vsp_char_init(void)
 	atomic_set(&vsp_char_device.open_count, 0);
 
 	LEAVE();
-	LVSD_DEBUG("LVSD Control Interface Driver Initialized");
+	LVSD_DEBUG("LVSD Control Interface Driver Initialized -- Version 2.0");
 	return 0;
 
 error_region:
@@ -524,7 +524,7 @@ static void __exit vsp_char_exit(void)
 	class_destroy(vsp_char_class);
 	cdev_del(&vsp_char_device.lvsd_cdev);
 	unregister_chrdev_region(MKDEV(500, 0), 1);
-	LVSD_DEBUG("LVSD Control Interface Driver Exited");
+	LVSD_DEBUG("LVSD Control Interface Driver Exited -- Version 2.0");
 
 	LEAVE();
 }
