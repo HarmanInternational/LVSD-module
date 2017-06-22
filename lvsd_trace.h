@@ -27,6 +27,9 @@
 #include <linux/kernel.h>
 
 #define LVSD_DEBUG_MSG
+#define LVSD_INFO_MSG
+#define LVSD_NOTICE_MSG
+#define LVSD_ERR_MSG
 #define LVSD_DEBUG_VERBOSE
 
 #ifdef LVSD_DEBUG_VERBOSE

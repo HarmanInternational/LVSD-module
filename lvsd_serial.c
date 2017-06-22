@@ -1490,7 +1490,7 @@ int lvsd_tty_register_device(tLvsd_Uart_Port_t *up)
 	struct uart_port *uport;
 	struct tty_port *port;
 	struct uart_state *state;
-	int ret = 0;
+	int ret = 1;
 	
 	tLvsd_Uart_Devices_t *device = up->uart_dev_struct;
 
