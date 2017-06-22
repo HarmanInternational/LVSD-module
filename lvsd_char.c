@@ -348,11 +348,9 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 			LVSD_ERR("Mapping Read Buffer failed\n");
 			return -EIO;
 		}
-	
+
 		LVSD_DEBUG("Mapping Read Buffer Success");
 		LEAVE();
-		ret = 1;
-		return ret;
 	}
 	/* If the Wbuffer needs to be Mmapped*/
 	else if (mmap_buf_struct.read_write == LVSD_ACCESS_WRITE_BUF) {
@@ -362,7 +360,7 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 		}
 
 		LVSD_DEBUG("Mapping Write Buffer Success");
-		ret =1;
+	//	ret = 1;
 		LEAVE();
 	}
 	/* If neither of the buffers needs to be Mmapped, then return error*/
@@ -371,11 +369,11 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	/*Create the actual File system entry For our TTY device*/
+	/*Create the actual File system entry For our TTY device
 	if (ret) {
 		ret = lvsd_tty_register_device(vsp);
 		LVSD_DEBUG("TTY Device Registered from MMAP Write function");
-	}
+	}*/
 
 	LEAVE();
 	return ret;
@@ -507,7 +505,7 @@ static int __init vsp_char_init(void)
 	atomic_set(&vsp_char_device.open_count, 0);
 
 	LEAVE();
-	LVSD_DEBUG("LVSD Control Interface Driver Initialized -- Version 2.1");
+	LVSD_DEBUG("LVSD Control Interface Driver Initialized -- Version 2.0");
 	return 0;
 
 error_region:

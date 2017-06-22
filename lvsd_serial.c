@@ -1429,7 +1429,7 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 {
 	struct uart_state *state;
 	struct tty_port *port;
-	//struct device *tty_dev;
+	struct device *tty_dev;
 	int ret = 0;
 
 	ENTER();
@@ -1459,7 +1459,7 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	mutex_unlock(&port->mutex);/*do we need to release it, so that, while transfer in progress - we can acquire this and operate - with long wait*/
 	spin_lock_init(&uport->lock);
 
-	/* adds the TTY device to the TTY layer
+	/* adds the TTY device to the TTY layer*/
 	tty_dev = tty_register_device(drv->tty_driver, uport->line, NULL);
 
 	if (likely(!IS_ERR(tty_dev)))
@@ -1468,7 +1468,7 @@ int lvsd_uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	LVSD_ERR("tty device %s registration failure", drv->dev_name);
 		ret = -EINVAL;
 		goto out;
-	}*/
+	}
 
 	/* ensure UPF_DEAD is not set*/
 	uport->flags &= ~UPF_DEAD;
@@ -1490,7 +1490,7 @@ int lvsd_tty_register_device(tLvsd_Uart_Port_t *up)
 	struct uart_port *uport;
 	struct tty_port *port;
 	struct uart_state *state;
-	int ret = 1;
+	int ret = 0;
 	
 	tLvsd_Uart_Devices_t *device = up->uart_dev_struct;
 
