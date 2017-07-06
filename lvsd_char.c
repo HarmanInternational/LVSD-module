@@ -321,7 +321,7 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 	/* The Structure at the User space address (vma->vm_pgoff << PAGE_SHIFT), has the Handle of the VSP,
 	 * the Value which specifies whether the Read/Write buffer needs to be Mmapped */
 	if (copy_from_user(&mmap_buf_struct, (tLvsd_Mmap_Buf_Info_t *)(vma->vm_pgoff << PAGE_SHIFT), sizeof(tLvsd_Mmap_Buf_Info_t))) {
-		LVSD_ERR("Copy from User Failed");
+		LVSD_DEBUG("Copy from User Failed");
 		return -EFAULT;
 	}
 
@@ -329,7 +329,7 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 	vsp = (tLvsd_Uart_Port_t *)(mmap_buf_struct.vsp_handle);
 	LVSD_DEBUG("vsp: %p", vsp);
 	if (!vsp) {
-		LVSD_ERR("VSP whose Rbuffer / Wbuffer that needs to the Mmapped cannot be NULL");
+		LVSD_DEBUG("VSP whose Rbuffer / Wbuffer that needs to the Mmapped cannot be NULL");
 		return -EINVAL;
 	}
 
@@ -344,8 +344,9 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 	/*Converting Kernel Space R/W buffer, to user space mapped memory*/
 	/* If the RBuffer (Circular Buffer) needs to be Mmapped*/
 	if (mmap_buf_struct.read_write == LVSD_ACCESS_READ_BUF) {
+		LVSD_DEBUG("Mapping Read Buffer");
 		if ((remap_pfn_range(vma, vma->vm_start, virt_to_phys((void *)vsp->rbuffer.buf) >> PAGE_SHIFT, vsp->rbuffer_size, vma->vm_page_prot)) < 0) {
-			LVSD_ERR("Mapping Read Buffer failed\n");
+			LVSD_DEBUG("Mapping Read Buffer failed");
 			return -EIO;
 		}
 
@@ -354,8 +355,9 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 	/* If the Wbuffer needs to be Mmapped*/
 	else if (mmap_buf_struct.read_write == LVSD_ACCESS_WRITE_BUF) {
+		LVSD_DEBUG("Mapping Write Buffer");
 		if ((remap_pfn_range(vma, vma->vm_start, virt_to_phys((void *)vsp->wbuffer) >> PAGE_SHIFT, vsp->wbuffer_size, vma->vm_page_prot)) < 0) {
-			LVSD_ERR("Mapping Write Buffer failed\n");
+			LVSD_DEBUG("Mapping Write Buffer failed");
 			return -EIO;
 		}
 
