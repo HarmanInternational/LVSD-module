@@ -336,16 +336,11 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 	LVSD_DEBUG("vsp->rbuffer.buf: %p", vsp->rbuffer.buf);
 	LVSD_DEBUG("vsp->wbuffer: %p", vsp->wbuffer);
 
-	wbuf_phy_addrs = virt_to_phys(vsp->wbuffer);
-	LVSD_DEBUG("temporary physicall wbuf addr is %ld", wbuf_phy_addrs);
-
-	rbuf_phy_addrs = virt_to_phys(vsp->rbuffer.buf);
-	LVSD_DEBUG("temporary physicall rbuf addr is %ld", rbuf_phy_addrs);
 	/*Converting Kernel Space R/W buffer, to user space mapped memory*/
 	/* If the RBuffer (Circular Buffer) needs to be Mmapped*/
 	if (mmap_buf_struct.read_write == LVSD_ACCESS_READ_BUF) {
 		LVSD_DEBUG("Mapping Read Buffer");
-		if ((remap_pfn_range(vma, vma->vm_start, virt_to_phys((void *)vsp->rbuffer.buf) >> PAGE_SHIFT, vsp->rbuffer_size, vma->vm_page_prot)) < 0) {
+		if ((remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, vsp->rbuffer_size, vma->vm_page_prot)) < 0) {
 			LVSD_DEBUG("Mapping Read Buffer failed");
 			return -EIO;
 		}
@@ -356,13 +351,12 @@ static int vsp_char_mmap(struct file *filp, struct vm_area_struct *vma)
 	/* If the Wbuffer needs to be Mmapped*/
 	else if (mmap_buf_struct.read_write == LVSD_ACCESS_WRITE_BUF) {
 		LVSD_DEBUG("Mapping Write Buffer");
-		if ((remap_pfn_range(vma, vma->vm_start, virt_to_phys((void *)vsp->wbuffer) >> PAGE_SHIFT, vsp->wbuffer_size, vma->vm_page_prot)) < 0) {
+		if ((remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, vsp->wbuffer_size, vma->vm_page_prot)) < 0) {
 			LVSD_DEBUG("Mapping Write Buffer failed");
 			return -EIO;
 		}
 
 		LVSD_DEBUG("Mapping Write Buffer Success");
-	//	ret = 1;
 		LEAVE();
 	}
 	/* If neither of the buffers needs to be Mmapped, then return error*/
